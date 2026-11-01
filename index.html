@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>大富翁 - 香港黑帮版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:radial-gradient(circle at 50% -10%,#1e293b,#0b1120 65%);
+  color:#e2e8f0;user-select:none;-webkit-user-select:none;
+}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+/* ---------- 顶栏 ---------- */
+#topbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:7px 12px;background:rgba(15,23,42,.85);
+  border-bottom:1px solid #1e293b;
+}
+.logo{font-weight:800;font-size:15px;color:#38bdf8;letter-spacing:.5px;white-space:nowrap}
+.turn-info{font-size:12px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#restartBtn{
+  margin-left:auto;flex:0 0 auto;background:#1e293b;color:#94a3b8;border:1px solid #334155;
+  border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;touch-action:manipulation;
+}
+
+/* ---------- 选人界面 (适配手机修复) ---------- */
+#setupScreen{
+  position:fixed;inset:0;background:#0f172a;z-index:100;
+  display:flex;flex-direction:column;
+}
+.setup-content {
+  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;padding-bottom:0;
+}
+.setup-footer {
+  padding:15px 20px;padding-bottom:calc(15px + env(safe-area-inset-bottom, 0px));
+  background:#0f172a;border-top:1px solid #1e293b;display:flex;justify-content:center;
+}
+.setup-title{text-align:center;font-size:20px;font-weight:800;color:#38bdf8;margin-bottom:20px}
+.setup-section{margin-bottom:20px}
+.setup-section h3{font-size:14px;color:#94a3b8;margin-bottom:10px;border-left:3px solid #38bdf8;padding-left:8px}
+.char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
+.char-card{
+  background:#1e293b;border:2px solid transparent;border-radius:10px;padding:10px;
+  text-align:center;cursor:pointer;transition:.2s;touch-action:manipulation;
+}
+.char-card.selected{border-color:#38bdf8;background:#0f172a;box-shadow:0 0 10px rgba(56,189,248,.3)}
+.char-avatar{font-size:30px;margin-bottom:5px;height:40px;display:flex;align-items:center;justify-content:center}
+.char-avatar img{max-width:100%;max-height:100%;object-fit:contain}
+.char-name{font-size:13px;font-weight:700}
+.char-power{font-size:10px;color:#fbbf24;margin:4px 0;letter-spacing:-1px}
+.char-skill{font-size:10px;color:#cbd5e1;line-height:1.2;opacity:.8}
+#startGameBtn{
+  background:linear-gradient(180deg,#38bdf8,#0284c7);color:#fff;
+  border:none;border-radius:8px;padding:12px;font-size:16px;font-weight:800;
+  cursor:pointer;box-shadow:0 4px 0 #075985;width:100%;max-width:400px;touch-action:manipulation;
+}
+#startGameBtn:active{transform:translateY(2px);box-shadow:0 2px 0 #075985}
+
+/* ---------- 主区域 ---------- */
+#main{flex:1 1 auto;display:flex;gap:8px;padding:8px;min-height:0;min-width:0}
+#boardWrap{
+  flex:1 1 auto;min-width:0;min-height:0;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+#side{flex:0 0 250px;display:flex;flex-direction:column;gap:8px;min-height:0}
+
+/* ---------- 棋盘 ---------- */
+#board{
+  position:relative;display:grid;
+  grid-template-columns:repeat(11,1fr);
+  grid-template-rows:repeat(11,1fr);
+  gap:3px;padding:4px;background:#0b1120;border-radius:10px;
+  box-shadow:0 0 0 1px #1e293b,0 8px 30px rgba(0,0,0,.5);
+  width: min(100%, 88vh);aspect-ratio: 1 / 1;--cs: 38px;
+}
+.cell{
+  position:relative;background:#1e293b;border-radius:4px;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .15s;background-size:cover;background-position:center;
+}
+.cell .bar{position:absolute;top:0;left:0;right:0;height:14%}
+.cell .icon{
+  font-size:calc(var(--cs)*.5);line-height:1;
+  width:calc(var(--cs)*.55);height:calc(var(--cs)*.55);
+  display:flex;align-items:center;justify-content:center;
+  margin-top:calc(var(--cs)*.1);z-index:2;
+}
+.cell .icon img{width:100%;height:100%;object-fit:contain;display:block}
+.cell .nm{
+  display:none;font-size:calc(var(--cs)*.19);line-height:1.1;font-weight:700;
+  margin-top:calc(var(--cs)*.02);color:#fff;text-align:center;z-index:2;
+  text-shadow:0 1px 2px #000,0 0 4px #000;
+}
+.cell.show-name .nm{display:block}
+.cell .owner-dot{
+  position:absolute;top:2px;right:2px;
+  width:calc(var(--cs)*.2);height:calc(var(--cs)*.2);
+  border-radius:50%;display:none;box-shadow:0 0 0 1px rgba(0,0,0,.6);z-index:3;
+}
+.cell.owned .owner-dot{display:block}
+.cell .tokens{
+  position:absolute;bottom:1px;left:1px;right:1px;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:1px;pointer-events:none;z-index:4;
+}
+.tok{
+  width:calc(var(--cs)*.25);height:calc(var(--cs)*.25);border-radius:50%;
+  box-shadow:0 0 0 2px rgba(255,255,255,.9),0 1px 3px rgba(0,0,0,.6);
+}
+
+/* ---------- 中央区 ---------- */
+#center{
+  grid-column:2/11;grid-row:2/11;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  border-radius:8px;padding:8px;overflow:hidden;
+  background:linear-gradient(140deg,#111827,#1a2333);
+  background-size:cover;background-position:center;position:relative;
+}
+#center::before{content:'';position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:1}
+#center > *{z-index:2}
+#dice{display:flex;gap:10px}
+.die{
+  width:clamp(30px,calc(var(--cs)*1.3),60px);
+  height:clamp(30px,calc(var(--cs)*1.3),60px);
+  background:#f8fafc;color:#0f172a;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(18px,calc(var(--cs)*.6),32px);font-weight:800;
+  box-shadow:0 4px 0 #94a3b8;
+}
+#centerMsg{
+  font-size:clamp(12px,2.4vmin,15px);color:#fff;text-align:center;
+  max-width:90%;line-height:1.4;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,.8);
+}
+#rollBtn{
+  display:none;border:none;border-radius:8px;padding:10px 22px;
+  background:linear-gradient(180deg,#38bdf8,#0284c7);color:#fff;
+  font-size:clamp(13px,2.6vmin,16px);font-weight:700;cursor:pointer;
+  box-shadow:0 4px 0 #075985;touch-action:manipulation;
+}
+#rollBtn.show{display:block;animation:pulse 1s infinite}
+#rollBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #075985}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+
+/* ---------- 侧栏 ---------- */
+#playerList{display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:0}
+.pcard{
+  display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;
+  background:#1e293b;border-left:4px solid var(--c);transition:.18s;flex:0 0 auto;
+}
+.pcard.active{background:#334155;box-shadow:0 0 0 1px var(--c),0 0 12px rgba(56,189,248,.3)}
+.pcard.dead{opacity:.4;filter:grayscale(1)}
+.pavatar{font-size:22px;width:30px;height:30px;text-align:center;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.pavatar img{width:100%;height:100%;object-fit:contain;border-radius:4px}
+.pinfo{min-width:0;flex:1 1 auto}
+.pname{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between}
+.ppower{font-size:10px;color:#fbbf24;letter-spacing:-1px}
+.pmoney{font-size:13px;color:#4ADE80;font-weight:800}
+
+#log{
+  flex:1 1 auto;background:#0f172a;border-radius:8px;padding:8px;
+  overflow-y:auto;font-size:12px;line-height:1.6;color:#94a3b8;min-height:0;
+  border:1px solid #1e293b;
+}
+#log div{margin-bottom:4px;word-break:break-all}
+.log-sys{color:#38bdf8}
+.log-chat{color:#fbbf24;font-style:italic}
+
+/* ---------- 弹窗 ---------- */
+.modal{position:fixed;inset:0;background:rgba(2,6,23,.8);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:99}
+.modal.hidden{display:none}
+.modal-box{
+  background:#1e293b;border:1px solid #334155;border-radius:14px;
+  padding:20px 18px;max-width:360px;width:100%;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);animation:pop .18s ease-out;
+}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-title{font-size:18px;font-weight:800;color:#38bdf8;margin-bottom:12px}
+.modal-body{font-size:14px;line-height:1.6;color:#e2e8f0;margin-bottom:18px;white-space:pre-line}
+.modal-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.mbtn{border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;background:#334155;color:#e2e8f0;cursor:pointer;min-width:90px;touch-action:manipulation}
+.mbtn.primary{background:linear-gradient(180deg,#38bdf8,#0284c7);color:#fff;box-shadow:0 3px 0 #075985}
+.mbtn:active{transform:translateY(1px)}
+
+/* ---------- 手机适配 ---------- */
+@media (max-width:760px){
+  #main{flex-direction:column;padding:6px;gap:6px}
+  #side{flex:0 0 auto;flex-direction:column;gap:6px;max-height:140px}
+  #playerList{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
+  .pcard{min-width:110px}
+  #log{height:60px;flex:0 0 auto}
+}
+</style>
+</head>
+<body>
+
+<!-- 选人界面 -->
+<div id="setupScreen">
+  <div class="setup-content">
+    <div class="setup-title">选择你的角色与对手</div>
+    <div class="setup-section">
+      <h3>第一步：选择你扮演的角色</h3>
+      <div class="char-grid" id="mainSelectGrid"></div>
+    </div>
+    <div class="setup-section">
+      <h3>第二步：选择电脑对手 (2-5名)</h3>
+      <div class="char-grid" id="botSelectGrid"></div>
+    </div>
+  </div>
+  <div class="setup-footer">
+    <button id="startGameBtn">开始游戏</button>
+  </div>
+</div>
+
+<div id="app">
+  <header id="topbar">
+    <div class="logo">🎲 大富翁</div>
+    <div id="turnInfo" class="turn-info">准备开始</div>
+    <button id="restartBtn">重新选人</button>
+  </header>
+  <main id="main">
+    <div id="boardWrap"><div id="board"></div></div>
+    <aside id="side">
+      <div id="playerList"></div>
+      <div id="log"></div>
+    </aside>
+  </main>
+</div>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div id="modalTitle" class="modal-title"></div>
+    <div id="modalBody" class="modal-body"></div>
+    <div id="modalBtns" class="modal-btns"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   ========================  可 编 辑 配 置 区  =========================
+   ===================================================================== */
+const START_MONEY = 2000; // 起始资金
+const CENTER_BG = 'linear-gradient(140deg,#111827,#1a2333)'; // 地图中心背景
+
+const GROUPS = {
+  brown:     { color: '#8B5A2B' }, lightblue: { color: '#7DD3FC' },
+  pink:      { color: '#F472B6' }, orange:    { color: '#FB923C' },
+  red:       { color: '#EF4444' }, yellow:    { color: '#FACC15' },
+  green:     { color: '#22C55E' }, blue:      { color: '#3B82F6' }
+};
+
+// 香港黑帮地图地点
+const BOARD_DEF = [
+  { type:'go',        name:'起点',       icon:'🚩' },
+  { type:'property',  name:'坚尼地城',   icon:'🏝️', price:60,  group:'brown' },
+  { type:'chance',    name:'机会',       icon:'❓' },
+  { type:'property',  name:'香港大学',   icon:'🏛️', price:60,  group:'brown' },
+  { type:'tax',       name:'所得税',     icon:'💸', amount:200 },
+  { type:'railroad',  name:'罗湖口岸',   icon:'🚉', price:200 },
+  { type:'property',  name:'中环',       icon:'🏙️', price:100, group:'lightblue' },
+  { type:'fate',      name:'命运',       icon:'🎴' },
+  { type:'property',  name:'上环',       icon:'⚓', price:100, group:'lightblue' },
+  { type:'property',  name:'金钟',       icon:'🏢', price:120, group:'lightblue' },
+  { type:'jail',      name:'惩教署',     icon:'🚔' },
+  { type:'property',  name:'铜锣湾',     icon:'🛍️', price:140, group:'pink' },
+  { type:'utility',   name:'电力公司',   icon:'💡', price:150 },
+  { type:'property',  name:'湾仔',       icon:'🌊', price:140, group:'pink' },
+  { type:'property',  name:'北角',       icon:'🏘️', price:160, group:'pink' },
+  { type:'railroad',  name:'落马洲',     icon:'🚄', price:200 },
+  { type:'property',  name:'尖沙咀',     icon:'🗼', price:180, group:'orange' },
+  { type:'chance',    name:'机会',       icon:'❓' },
+  { type:'property',  name:'油麻地',     icon:'🏮', price:180, group:'orange' },
+  { type:'property',  name:'佐敦',       icon:'🍜', price:200, group:'orange' },
+  { type:'parking',   name:'免费停车',   icon:'🅿️' },
+  { type:'property',  name:'旺角',       icon:'🚦', price:220, group:'red' },
+  { type:'fate',      name:'命运',       icon:'🎴' },
+  { type:'property',  name:'太子',       icon:'👑', price:220, group:'red' },
+  { type:'property',  name:'深水埗',     icon:'🧥', price:240, group:'red' },
+  { type:'railroad',  name:'西九龙',     icon:'🚂', price:200 },
+  { type:'property',  name:'石硖尾',     icon:'🏢', price:260, group:'yellow' },
+  { type:'property',  name:'九龙塘',     icon:'🏫', price:260, group:'yellow' },
+  { type:'utility',   name:'自来水厂',   icon:'🚰', price:150 },
+  { type:'property',  name:'钻石山',     icon:'💎', price:280, group:'yellow' },
+  { type:'gotojail',  name:'入狱',       icon:'👮' },
+  { type:'property',  name:'鲗鱼涌',     icon:'🐟', price:300, group:'green' },
+  { type:'property',  name:'太古',       icon:'🏭', price:300, group:'green' },
+  { type:'chance',    name:'机会',       icon:'❓' },
+  { type:'property',  name:'西湾河',     icon:'🌅', price:320, group:'green' },
+  { type:'railroad',  name:'机场',       icon:'✈️', price:200 },
+  { type:'fate',      name:'命运',       icon:'🎴' },
+  { type:'property',  name:'石澳',       icon:'🏖️', price:350, group:'blue' },
+  { type:'tax',       name:'保护费',     icon:'🛡️', amount:100 },
+  { type:'property',  name:'赤柱',       icon:'🌇', price:400, group:'blue' }
+];
+
+// 角色配置：赋予每个人独特技能
+const PLAYERS_DEF = [
+  { id:0, name:'阿荣',   emoji:'🕵️', color:'#FF4D6D', power:4, skillType:'intel', skillDesc:'交租时获50元情报费', lines:{ payRent:'收到风，交少少当饮茶。' } },
+  { id:1, name:'李家源', emoji:'🦊', color:'#22D3EE', power:4, skillType:'discount', skillDesc:'买地降价10%', lines:{ payRent:'扑街！又收我钱！' } },
+  { id:2, name:'洪文刚', emoji:'🐬', color:'#A78BFA', power:3, skillType:'dodgeRent', skillDesc:'5%概率免交地租', lines:{ payRent:'嘿嘿，这次免单啦！', dodge:'运气真好~' } },
+  { id:3, name:'冯振国', emoji:'🐸', color:'#4ADE80', power:5, skillType:'rob', skillDesc:'同格时掷骰抢10%钱', lines:{ rob:'把钱交出来！', payRent:'可恶啊！' } },
+  { id:4, name:'Louis',  emoji:'🦄', color:'#FBBF24', power:3, skillType:'passGo', skillDesc:'经过起点多拿100元', lines:{ payRent:'呜呜呜好穷' } },
+  { id:5, name:'张少祖', emoji:'🐯', color:'#FB923C', power:5, skillType:'fightMaster', skillDesc:'打架获胜夺金翻倍', lines:{ payRent:'（亮出肌肉）' } }
+];
+
+// 机会卡 (15张 - 香港黑帮风)
+const CHANCE_CARDS = [
+  { text:'行大运，去「起点」收风', effect:{ type:'moveTo', pos:0 } },
+  { text:'去「赤柱」度假（晒太阳）', effect:{ type:'moveTo', pos:39 } },
+  { text:'搭直升机去「机场」', effect:{ type:'moveTo', pos:35 } },
+  { text:'做成一单大买卖，获得 $200', effect:{ type:'money', amount:200 } },
+  { text:'被O记查牌，罚了 $50', effect:{ type:'money', amount:-50 } },
+  { text:'大佬俾面，获得「免死金牌」一张', effect:{ type:'getOut' } },
+  { text:'行踪败露，直接入「惩教署」！', effect:{ type:'jail' } },
+  { text:'铜锣湾揸fit人，向前走3格', effect:{ type:'moveSteps', steps:3 } },
+  { text:'行错路，后退3格', effect:{ type:'moveSteps', steps:-3 } },
+  { text:'请成班兄弟饮茶，每人给 $50', effect:{ type:'payEach', amount:50 } },
+  { text:'街头遇袭，同最近玩家【开片】！', effect:{ type:'fight' } },
+  { text:'食错药，战斗力临时跌到1星', effect:{ type:'losePower' } },
+  { text:'俾人点错相，去「惩教署」饮咖啡', effect:{ type:'moveTo', pos:10 } },
+  { text:'买六合彩中头奖，获得 $500', effect:{ type:'money', amount:500 } },
+  { text:'收各家各户陀地费，每人给你 $30', effect:{ type:'collectEach', amount:30 } }
+];
+
+// 命运卡 (15张 - 香港黑帮风)
+const FATE_CARDS = [
+  { text:'睇跌打医生，支付 $100', effect:{ type:'money', amount:-100 } },
+  { text:'中左波，获得 $200', effect:{ type:'money', amount:200 } },
+  { text:'大佬生日，每人送你 $30', effect:{ type:'collectEach', amount:30 } },
+  { text:'老豆留低笔遗产，获得 $300', effect:{ type:'money', amount:300 } },
+  { text:'炒股大赚，获得 $150', effect:{ type:'money', amount:150 } },
+  { text:'交保护费，支付 $80', effect:{ type:'money', amount:-80 } },
+  { text:'执到银包，获得 $50', effect:{ type:'money', amount:50 } },
+  { text:'违例泊车被抄牌，罚 $60', effect:{ type:'money', amount:-60 } },
+  { text:'去「免费停车」叹下世界', effect:{ type:'moveTo', pos:20 } },
+  { text:'抽到支好签，获得「免死金牌」', effect:{ type:'getOut' } },
+  { text:'同对家【开片】！赢家收 $150', effect:{ type:'fight', prize:150 } },
+  { text:'被人斩伤入厂，战斗力降为1星', effect:{ type:'losePower' } },
+  { text:'搵到神医，战斗力恢复巅峰', effect:{ type:'healPower' } },
+  { text:'撞跌阿婆，赔 $120 医药费', effect:{ type:'money', amount:-120 } },
+  { text:'善长仁翁捐助，获得 $100', effect:{ type:'money', amount:100 } }
+];
+/* ===================================================================== */
+
+const $ = id => document.getElementById(id);
+const boardEl = $('board');
+const playerListEl = $('playerList');
+const logEl = $('log');
+const turnInfoEl = $('turnInfo');
+const modalEl = $('modal');
+const modalTitleEl = $('modalTitle');
+const modalBodyEl = $('modalBody');
+const modalBtnsEl = $('modalBtns');
+
+let allPlayers = []; 
+let currentPlayerIdx = 0;
+let isMoving = false;
+let isGameOver = false;
+
+let selectedMainId = 0;
+let selectedBotIds = [1, 2, 3];
+
+// 安全头像解析（防止手机端嵌套模板报错）
+function getAvatarHtml(emoji) {
+  if (typeof emoji === 'string' && (emoji.startsWith('http') || emoji.startsWith('data:image'))) {
+    return `<img src="${emoji}" alt="avatar">`;
+  }
+  return emoji;
+}
+
+function getPosCoordinates(pos) {
+  if (pos >= 0 && pos <= 10) return { col: 11 - pos, row: 11 };
+  if (pos >= 11 && pos <= 20) return { col: 1, row: 11 - (pos - 10) };
+  if (pos >= 21 && pos <= 30) return { col: 1 + (pos - 20), row: 1 };
+  if (pos >= 31 && pos <= 39) return { col: 11, row: 1 + (pos - 30) };
+  return { col: 1, row: 1 };
+}
+
+function renderSetup() {
+  const mainGrid = $('mainSelectGrid');
+  mainGrid.innerHTML = '';
+  PLAYERS_DEF.forEach(p => {
+    const card = document.createElement('div');
+    card.className = `char-card ${selectedMainId === p.id ? 'selected' : ''}`;
+    const avatar = getAvatarHtml(p.emoji);
+    card.innerHTML = `
+      <div class="char-avatar">${avatar}</div>
+      <div class="char-name">${p.name}</div>
+      <div class="char-power">${'⭐'.repeat(p.power)}</div>
+      <div class="char-skill">${p.skillDesc}</div>
+    `;
+    card.onclick = () => {
+      selectedMainId = p.id;
+      if (selectedBotIds.includes(p.id)) {
+        selectedBotIds = selectedBotIds.filter(id => id !== p.id);
+        if (selectedBotIds.length < 2) {
+          const others = PLAYERS_DEF.filter(x => x.id !== selectedMainId && !selectedBotIds.includes(x.id));
+          if(others.length > 0) selectedBotIds.push(others[0].id);
+        }
+      }
+      renderSetup();
+    };
+    mainGrid.appendChild(card);
+  });
+
+  const botGrid = $('botSelectGrid');
+  botGrid.innerHTML = '';
+  PLAYERS_DEF.forEach(p => {
+    if (p.id === selectedMainId) return;
+    const card = document.createElement('div');
+    card.className = `char-card ${selectedBotIds.includes(p.id) ? 'selected' : ''}`;
+    const avatar = getAvatarHtml(p.emoji);
+    card.innerHTML = `
+      <div class="char-avatar">${avatar}</div>
+      <div class="char-name">${p.name}</div>
+      <div class="char-power">${'⭐'.repeat(p.power)}</div>
+      <div class="char-skill">${p.skillDesc}</div>
+    `;
+    card.onclick = () => {
+      if (selectedBotIds.includes(p.id)) {
+        selectedBotIds = selectedBotIds.filter(id => id !== p.id);
+      } else {
+        if (selectedBotIds.length < 5) selectedBotIds.push(p.id);
+        else alert('最多只能选择5名电脑对手！');
+      }
+      renderSetup();
+    };
+    botGrid.appendChild(card);
+  });
+}
+
+$('startGameBtn').onclick = () => {
+  if (selectedBotIds.length < 2) {
+    alert('请至少选择2名电脑对手！');
+    return;
+  }
+  $('setupScreen').style.display = 'none';
+  initGame();
+};
+
+$('restartBtn').onclick = () => {
+  if(confirm('确定要重新开始并选人吗？')) {
+    $('setupScreen').style.display = 'flex';
+    renderSetup();
+  }
+};
+
+function initGame() {
+  const activeIds = [selectedMainId, ...selectedBotIds];
+  allPlayers = PLAYERS_DEF.filter(p => activeIds.includes(p.id)).map(p => ({
+    ...p,
+    money: START_MONEY,
+    pos: 0,
+    jailTurns: 0,
+    properties: [],
+    getOutCards: 0,
+    currentPower: p.power
+  }));
+  
+  allPlayers.sort((a,b) => a.id === selectedMainId ? -1 : (b.id === selectedMainId ? 1 : 0));
+
+  currentPlayerIdx = 0;
+  isMoving = false;
+  isGameOver = false;
+  
+  boardEl.innerHTML = '';
+  logEl.innerHTML = '';
+  
+  for (let i = 0; i < 40; i++) {
+    const def = BOARD_DEF[i];
+    const coords = getPosCoordinates(i);
+    const cell = document.createElement('div');
+    cell.className = 'cell show-name';
+    cell.id = `cell-${i}`;
+    cell.style.gridColumn = coords.col;
+    cell.style.gridRow = coords.row;
+    
+    if (def.type === 'property' && def.group) {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.background = GROUPS[def.group].color;
+      cell.appendChild(bar);
+    }
+    
+    const icon = document.createElement('div');
+    icon.className = 'icon';
+    if (typeof def.icon === 'string' && (def.icon.startsWith('http') || def.icon.startsWith('data:image'))) {
+      icon.innerHTML = `<img src="${def.icon}" />`;
+    } else {
+      icon.textContent = def.icon || '🏠';
+    }
+    cell.appendChild(icon);
+    
+    const nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.textContent = def.name;
+    cell.appendChild(nm);
+    
+    const ownerDot = document.createElement('div');
+    ownerDot.className = 'owner-dot';
+    cell.appendChild(ownerDot);
+    
+    const tokens = document.createElement('div');
+    tokens.className = 'tokens';
+    cell.appendChild(tokens);
+    
+    boardEl.appendChild(cell);
+  }
+  
+  const center = document.createElement('div');
+  center.id = 'center';
+  center.style.background = CENTER_BG;
+  center.style.backgroundSize = 'cover';
+  center.innerHTML = `
+    <div id="dice">
+      <div class="die" id="die1">?</div>
+      <div class="die" id="die2">?</div>
+    </div>
+    <div id="centerMsg">等待开始</div>
+    <button id="rollBtn">掷骰子</button>
+  `;
+  boardEl.appendChild(center);
+  $('rollBtn').addEventListener('click', onRollClick);
+  
+  renderPlayers();
+  renderTokens();
+  updateUI();
+  addLog('游戏开始！主控玩家：' + allPlayers[0].name, 'log-sys');
+  
+  setTimeout(nextTurn, 500);
+}
+
+function renderPlayers() {
+  playerListEl.innerHTML = '';
+  allPlayers.forEach((p, i) => {
+    if (p.money < 0) p.money = 0;
+    const card = document.createElement('div');
+    card.className = `pcard ${i === currentPlayerIdx ? 'active' : ''} ${p.money <= 0 ? 'dead' : ''}`;
+    card.style.setProperty('--c', p.color);
+    const avatar = getAvatarHtml(p.emoji);
+    card.innerHTML = `
+      <div class="pavatar">${avatar}</div>
+      <div class="pinfo">
+        <div class="pname">
+          <span>${p.name} ${p.jailTurns > 0 ? '🚔' : ''}</span>
+          <span class="ppower">${'⭐'.repeat(p.currentPower)}</span>
+        </div>
+        <div class="pmoney">$${p.money}</div>
+      </div>
+    `;
+    playerListEl.appendChild(card);
+  });
+}
+
+function renderTokens() {
+  document.querySelectorAll('.tokens').forEach(el => el.innerHTML = '');
+  allPlayers.forEach(p => {
+    if (p.money <= 0) return;
+    const tokensEl = document.querySelector(`#cell-${p.pos} .tokens`);
+    if (tokensEl) {
+      const tok = document.createElement('div');
+      tok.className = 'tok';
+      tok.style.background = p.color;
+      tokensEl.appendChild(tok);
+    }
+  });
+}
+
+function addLog(msg, className = '') {
+  const div = document.createElement('div');
+  div.className = className;
+  div.textContent = msg;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function say(p, type) {
+  if (p.lines && p.lines[type]) {
+    setTimeout(() => addLog(`【${p.name}】: "${p.lines[type]}"`, 'log-chat'), 500);
+  }
+}
+
+function updateUI() {
+  const cp = allPlayers[currentPlayerIdx];
+  turnInfoEl.textContent = `当前回合：${cp.name}`;
+  
+  if (isGameOver) {
+    $('centerMsg').textContent = '游戏结束';
+    $('rollBtn').classList.remove('show');
+    return;
+  }
+  
+  if (cp.id === selectedMainId) {
+    $('centerMsg').textContent = '轮到你行动了';
+    $('rollBtn').classList.add('show');
+  } else {
+    $('centerMsg').textContent = `${cp.name} 正在思考...`;
+    $('rollBtn').classList.remove('show');
+  }
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function onRollClick() {
+  if (isMoving || isGameOver) return;
+  $('rollBtn').classList.remove('show');
+  isMoving = true;
+  await doRoll();
+  isMoving = false;
+}
+
+async function doRoll() {
+  const cp = allPlayers[currentPlayerIdx];
+  
+  if (cp.jailTurns > 0) {
+    cp.jailTurns--;
+    addLog(`${cp.name} 在监狱中，跳过回合 (剩余 ${cp.jailTurns} 回合)`, 'log-sys');
+    renderPlayers();
+    await sleep(1000);
+    nextTurn();
+    return;
+  }
+  
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  const total = d1 + d2;
+  
+  const die1 = $('die1');
+  const die2 = $('die2');
+  
+  for(let i=0; i<5; i++) {
+    die1.textContent = Math.floor(Math.random() * 6) + 1;
+    die2.textContent = Math.floor(Math.random() * 6) + 1;
+    await sleep(50);
+  }
+  die1.textContent = d1;
+  die2.textContent = d2;
+  
+  addLog(`${cp.name} 掷出了 ${d1} + ${d2} = ${total} 点`);
+  
+  for (let i = 0; i < total; i++) {
+    cp.pos = (cp.pos + 1) % 40;
+    renderTokens();
+    if (cp.pos === 0) {
+      let bonus = 200;
+      if (cp.skillType === 'passGo') {
+        bonus += 100;
+        addLog(`【技能触发】${cp.name} 经过起点额外获得 $100！`, 'log-sys');
+      }
+      cp.money += bonus;
+      renderPlayers();
+      addLog(`${cp.name} 经过起点，获得 $${bonus}`, 'log-sys');
+    }
+    await sleep(150);
+  }
+  
+  await handleLanding(cp);
+  
+  if (isGameOver) return;
+  
+  if (cp.money <= 0) {
+    cp.money = 0;
+    addLog(`${cp.name} 破产了！`, 'log-sys');
+    renderPlayers();
+    checkGameOver();
+  }
+  
+  if (!isGameOver) {
+    await sleep(500);
+    nextTurn();
+  }
+}
+
+async function handleLanding(p) {
+  const cellData = BOARD_DEF[p.pos];
+  const cellEl = $(`cell-${p.pos}`);
+  addLog(`${p.name} 停在了「${cellData.name}」`);
+  
+  // 冯振国专属技能：同格抢夺
+  if (p.skillType === 'rob') {
+    const other = allPlayers.find(x => x.id !== p.id && x.pos === p.pos && x.money > 0);
+    if (other) {
+      addLog(`【技能触发】${p.name} 与 ${other.name} 处于同一格！`, 'log-sys');
+      say(p, 'rob');
+      await sleep(500);
+      const r1 = Math.floor(Math.random() * 6) + 1;
+      const r2 = Math.floor(Math.random() * 6) + 1;
+      addLog(`${p.name} 掷出 ${r1}，${other.name} 掷出 ${r2}`);
+      if (r1 >= r2) {
+        const steal = Math.floor(other.money * 0.1);
+        other.money -= steal;
+        p.money += steal;
+        addLog(`${p.name} 抢夺成功，从 ${other.name} 处抢走 $${steal}`, 'log-sys');
+      } else {
+        addLog(`${p.name} 抢夺失败！`);
+      }
+      renderPlayers();
+      await sleep(800);
+    }
+  }
+
+  if (cellData.type === 'property' || cellData.type === 'railroad' || cellData.type === 'utility') {
+    let owner = allPlayers.find(x => x.properties.includes(p.pos));
+    if (owner) {
+      if (owner.id !== p.id && owner.money > 0) {
+        let rent = Math.floor(cellData.price * 0.1);
+        if (cellData.type === 'railroad') rent = 50;
+        if (cellData.type === 'utility') rent = 30;
+        
+        // 洪文刚专属技能：免租
+        if (p.skillType === 'dodgeRent' && Math.random() < 0.05) {
+          addLog(`${p.name} 触发【免交地租】，躲过一劫！`, 'log-sys');
+          say(p, 'dodge');
+          await sleep(800);
+          return;
+        }
+
+        p.money -= rent;
+        owner.money += rent;
+        addLog(`${p.name} 踩到 ${owner.name} 的产业，支付租金 $${rent}`);
+        
+        // 阿荣专属技能：收风拿情报费
+        if (p.skillType === 'intel') {
+           p.money += 50;
+           addLog(`${p.name} 触发【卧底收风】，获得 $50 情报费！`, 'log-sys');
+        }
+
+        say(p, 'payRent');
+        renderPlayers();
+      }
+    } else {
+      let price = cellData.price;
+      // 李家源专属技能：购房打折
+      if (p.skillType === 'discount') {
+        price = Math.floor(price * 0.9);
+        addLog(`【技能触发】${p.name} 购买土地降价10%！`, 'log-sys');
+      }
+
+      if (p.id === selectedMainId) {
+        if (p.money >= price) {
+          const res = await showModal('购买地产', `是否花费 $${price} 购买「${cellData.name}」？`, [
+            { text: '购买', primary: true, value: true },
+            { text: '放弃', primary: false, value: false }
+          ]);
+          if (res) {
+            p.money -= price;
+            p.properties.push(p.pos);
+            addLog(`${p.name} 花费 $${price} 购买了「${cellData.name}」`);
+            cellEl.classList.add('owned');
+            cellEl.querySelector('.owner-dot').style.background = p.color;
+            renderPlayers();
+          }
+        } else {
+          addLog(`资金不足，无法购买「${cellData.name}」`);
+        }
+      } else {
+        if (p.money >= price) {
+          p.money -= price;
+          p.properties.push(p.pos);
+          addLog(`${p.name} 花费 $${price} 购买了「${cellData.name}」`);
+          cellEl.classList.add('owned');
+          cellEl.querySelector('.owner-dot').style.background = p.color;
+          renderPlayers();
+          await sleep(500);
+        }
+      }
+    }
+  } else if (cellData.type === 'chance') {
+    const card = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
+    await showModal('机会卡', card.text);
+    addLog(`${p.name} 抽到机会：${card.text}`);
+    await applyEffect(p, card.effect);
+  } else if (cellData.type === 'fate') {
+    const card = FATE_CARDS[Math.floor(Math.random() * FATE_CARDS.length)];
+    await showModal('命运卡', card.text);
+    addLog(`${p.name} 抽到命运：${card.text}`);
+    await applyEffect(p, card.effect);
+  } else if (cellData.type === 'tax') {
+    p.money -= cellData.amount;
+    addLog(`${p.name} 缴纳了 $${cellData.amount} 的税金`);
+    renderPlayers();
+    await sleep(500);
+  } else if (cellData.type === 'gotojail') {
+    p.pos = 10;
+    p.jailTurns = 1;
+    addLog(`${p.name} 被送进了监狱！`);
+    renderTokens();
+    renderPlayers();
+    await sleep(500);
+  }
+}
+
+async function applyEffect(p, effect) {
+  if (effect.type === 'money') {
+    p.money += effect.amount;
+    if (effect.amount < 0) addLog(`${p.name} 支付了 $${-effect.amount}`);
+    else addLog(`${p.name} 获得了 $${effect.amount}`);
+  } else if (effect.type === 'moveTo') {
+    p.pos = effect.pos;
+    renderTokens();
+    addLog(`${p.name} 移动到了「${BOARD_DEF[p.pos].name}」`);
+    await handleLanding(p);
+  } else if (effect.type === 'moveSteps') {
+    for (let i = 0; i < Math.abs(effect.steps); i++) {
+      p.pos = (p.pos + (effect.steps > 0 ? 1 : -1) + 40) % 40;
+      renderTokens();
+      await sleep(150);
+    }
+    await handleLanding(p);
+  } else if (effect.type === 'jail') {
+    p.pos = 10;
+    p.jailTurns = 1;
+    renderTokens();
+    addLog(`${p.name} 被送进了监狱！`);
+  } else if (effect.type === 'getOut') {
+    p.getOutCards++;
+    addLog(`${p.name} 获得了「免死金牌」`);
+  } else if (effect.type === 'payEach') {
+    let totalPaid = 0;
+    allPlayers.forEach(other => {
+      if (other.id !== p.id && other.money > 0) {
+        p.money -= effect.amount; other.money += effect.amount; totalPaid += effect.amount;
+      }
+    });
+    addLog(`${p.name} 给其他玩家共支付了 $${totalPaid}`);
+  } else if (effect.type === 'collectEach') {
+    let totalGot = 0;
+    allPlayers.forEach(other => {
+      if (other.id !== p.id && other.money > 0) {
+        p.money += effect.amount; other.money -= effect.amount; totalGot += effect.amount;
+      }
+    });
+    addLog(`${p.name} 从其他玩家处共收取了 $${totalGot}`);
+  } else if (effect.type === 'fight') {
+    const targets = allPlayers.filter(x => x.id !== p.id && x.money > 0);
+    if(targets.length === 0) return;
+    const target = targets[Math.floor(Math.random() * targets.length)];
+    addLog(`⚔️ ${p.name} 与 ${target.name} 大打出手！`, 'log-sys');
+    const pScore = p.currentPower + Math.floor(Math.random()*6) + 1;
+    const tScore = target.currentPower + Math.floor(Math.random()*6) + 1;
+    addLog(`${p.name} 战斗力 [${p.currentPower}⭐+骰子] = ${pScore} vs ${target.name} 战斗力 [${target.currentPower}⭐+骰子] = ${tScore}`);
+    
+    if (pScore > tScore) {
+      addLog(`💥 ${p.name} 获胜！`, 'log-sys');
+      let winPrize = effect.prize || 0;
+      
+      // 张少祖专属技能：打架翻倍
+      if (p.skillType === 'fightMaster') {
+        if (winPrize > 0) {
+           winPrize *= 2;
+        } else {
+           winPrize = 150; 
+        }
+        addLog(`【技能触发】${p.name} 只手遮天，夺金翻倍！`, 'log-sys');
+      }
+      
+      if (winPrize > 0) { 
+        p.money += winPrize; target.money -= winPrize; 
+        addLog(`${target.name} 支付了 $${winPrize}`); 
+      } else { 
+        target.pos = 10; target.jailTurns = 1; 
+        addLog(`${target.name} 被打入监狱！`); renderTokens(); 
+      }
+    } else {
+      addLog(`💥 ${target.name} 获胜！`, 'log-sys');
+      if (effect.prize) { target.money += effect.prize; p.money -= effect.prize; addLog(`${p.name} 支付了 $${effect.prize}`); }
+      else { p.pos = 10; p.jailTurns = 1; addLog(`${p.name} 被打入监狱！`); renderTokens(); }
+    }
+  } else if (effect.type === 'losePower') {
+    p.currentPower = 1;
+    addLog(`${p.name} 战斗力降为 1 星！`);
+  } else if (effect.type === 'healPower') {
+    p.currentPower = p.power;
+    addLog(`${p.name} 战斗力恢复至 ${p.power} 星！`);
+  }
+  renderPlayers();
+  await sleep(800);
+}
+
+function showModal(title, body, buttons = [{text:'确定', primary:true, value:true}]) {
+  return new Promise(resolve => {
+    modalTitleEl.textContent = title;
+    modalBodyEl.textContent = body;
+    modalBtnsEl.innerHTML = '';
+    buttons.forEach(btn => {
+      const b = document.createElement('button');
+      b.className = `mbtn ${btn.primary ? 'primary' : ''}`;
+      b.textContent = btn.text;
+      b.onclick = () => { modalEl.classList.add('hidden'); resolve(btn.value); };
+      modalBtnsEl.appendChild(b);
+    });
+    modalEl.classList.remove('hidden');
+  });
+}
+
+function checkGameOver() {
+  const alive = allPlayers.filter(p => p.money > 0);
+  if (alive.length <= 1) {
+    isGameOver = true;
+    const winner = alive[0];
+    updateUI();
+    showModal('游戏结束', winner ? `${winner.name} 赢得了游戏！` : '同归于尽！', [
+      { text: '重新选人', primary: true, value: true }
+    ]).then(() => {
+      $('setupScreen').style.display = 'flex';
+      renderSetup();
+    });
+  }
+}
+
+function nextTurn() {
+  if (isGameOver) return;
+  let count = 0;
+  do {
+    currentPlayerIdx = (currentPlayerIdx + 1) % allPlayers.length;
+    count++;
+  } while (allPlayers[currentPlayerIdx].money <= 0 && count < allPlayers.length);
+  
+  renderPlayers();
+  updateUI();
+  
+  const cp = allPlayers[currentPlayerIdx];
+  if (cp.id !== selectedMainId && !isGameOver) {
+    setTimeout(async () => {
+      if (isGameOver) return;
+      await doRoll();
+    }, 1000);
+  }
+}
+
+// 启动
+renderSetup();
+</script>
+</body>
+</html>
